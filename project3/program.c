@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/sem.h>
+#include <errno.h>
 
 int semafor;
 
@@ -31,24 +32,25 @@ int main(int argc, char* argv[])
 
   fprintf(stdout,"Pid: %d   Przed sekcjami krytycznymi.\n", getpid());
 
-  //sekcja krytyczna
+
 
   for(i=0;i<sections;i++)
   {
-    while(semctl(semafor,0,GETVAL)>0);//jak wartosc semafora zejdzie do 0 to mozna wejsc do sekcji krytycznej
-    semafor_v();
-    
-    fprintf(stdout,"Pid: %d   W sekcji krytycznej nr: %d \n", getpid(), i);
-
-    sleep(3);
-
+    //sekcja krytyczna
     semafor_p();
     
+    
+    fprintf(stdout,"Pid: %d   W sekcji krytycznej nr: %d \n", getpid(), i);
+    fprintf(stdout,"wartosc semafora: %d\n",semctl(semafor,0,GETVAL));
+
+    sleep(0.1);
+
+    
+    //koniec sekcji krytycznej
+    semafor_v();
   }
 
   fprintf(stdout,"Pid: %d   Po sekcjach krytycznych.\n", getpid());
-  
-  //koniec sekcji krytycznej
 
   return 0;
 }
@@ -63,12 +65,21 @@ static void semafor_p(void)
   zmien_sem=semop(semafor,&bufor_sem,1);
   if (zmien_sem==-1) 
   {
-    printf("Pid: %d   Nie moglem odblokowac sekcji krytycznej.\n",getpid());
-    exit(EXIT_FAILURE);
+    if(errno==EINTR)
+    {
+      printf("Pid: %d Wznowienie procesu\n",getpid());
+      semafor_p();
+    }
+    else
+    {
+      printf("Pid: %d   Nie moglem odblokowac sekcji krytycznej.\n",getpid());
+      exit(EXIT_FAILURE);
+    }
+    
   }
   else
   {
-    printf("Pid: %d   Sekcja krytyczna odblokowana.\n",getpid());
+    printf("Pid: %d   Sekcja krytyczna zablokowana.\n",getpid());
   }
 }
 
@@ -79,14 +90,19 @@ static void semafor_v(void)
   bufor_sem.sem_num=0;
   bufor_sem.sem_op=1;
   bufor_sem.sem_flg=SEM_UNDO;
-  zmien_sem=semop(semafor,&bufor_sem,1);
-  if (zmien_sem==-1) 
+  if (semop(semafor,&bufor_sem,1)==-1) 
   {
+    if(errno==EINTR)
+    {
+      printf("Pid: %d Wznowienie procesu\n",getpid());
+      semafor_v();
+    }
+      
     printf("Pid: %d   Nie moglem zablokowac sekcji krytycznej.\n",getpid());
     exit(EXIT_FAILURE);
   }
   else
   {
-    printf("Pid: %d   Sekcja krytyczna zablokowana.\n",getpid());
+    printf("Pid: %d   Sekcja krytyczna odblokowana.\n\n",getpid());
   }
 }
