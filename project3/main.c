@@ -19,7 +19,7 @@ static void setSemafor(void);
 // ./main /home/ubuntu/Documents/Sysop/project3/program program 4 5 NULL
 int main(int argc, char* argv[])
 {
-  int i,id,cpid,execEr,status,pid,processes;
+  int i,id,cpid,execEr,status,pid,processes,strtolErr;
   char semaforArg[20];
   char location[120];
 
@@ -33,7 +33,19 @@ int main(int argc, char* argv[])
     exit(1);
   }
 
-  processes = atoi(argv[3]);
+  processes = strtol(argv[3],NULL,0);
+  if(!processes>0)
+  {
+    fprintf(stdout,"Podana ilosc procesow mniejsza od 0 lub blad konwersji strtol\n");
+    exit(4);
+  }
+
+  if(!strtol(argv[3],NULL,0)>0)
+  {
+    fprintf(stdout,"Podana ilosc przejsc przez sekcje krytyczna mniejsza od 0 lub blad konwersji strtol\n");
+    exit(5);
+  }
+
 
   createSemafor();
   setSemafor();
@@ -60,47 +72,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  /*
-  pid=getpid();
-
-  for(i=0; i<3; i++)
-  {
-    id = fork();
-    if(id == -1)
-    {
-      printf("Nieprawidlowe wywolanie fork()\n");
-      exit(1);
-    }
-    if(id == 0)
-    {
-      execEr = execl("/home/ubuntu/Documents/Sysop/project3/program","program",NULL);
-      if(execEr == -1)
-      {
-        printf("Blad wywolania execl\n");
-        exit(2);
-      }
-    }
-  }
-
-  sprintf(cmd, "pstree -p %d",pid);
-  system(cmd);
-
-  for(i=0; i<3; i++)
-  {
-    cpid = wait(&status);
-    if(cpid == -1)
-    {
-      printf("Blad potomka kod powrotu potomka to: %d\n", status/256);
-    }
-    else
-    {
-      printf("Potomek zakonczyl sie poprawnie, id: %d\n", cpid);
-      printf("kod powrotu potomka to: %d\n", status/256);
-    }
-    
-  } 
-  */
-
   for(i=0; i<processes; i++)
   {
     cpid = wait(&status);
@@ -118,7 +89,7 @@ int main(int argc, char* argv[])
 
   deleteSemafor();
 
-  exit(0);
+  return 0;
 }
 
 static void createSemafor(void)
@@ -138,7 +109,7 @@ static void createSemafor(void)
 static void setSemafor(void)
 {
   int ustaw_sem;
-  ustaw_sem=semctl(semafor,0,SETVAL,0);
+  ustaw_sem=semctl(semafor,0,SETVAL,1);
   if (ustaw_sem==-1)
   {
     printf("Nie mozna ustawic semafora.\n");
