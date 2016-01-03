@@ -10,7 +10,7 @@
 #include <errno.h>
 
 int memoryKey = 10;
-int memorySize = 256;
+int memorySize = sizeof(char);
 int memory;
 int detachment1;
 int detachment2;
@@ -23,8 +23,8 @@ static void createSemafor(int count);
 
 void upd();
 void upa();
-void fillInMemory();
-void takeFromMemory();
+void detachMemory();
+
 
 static void createSemafor(int count)
 {
@@ -42,35 +42,32 @@ static void createSemafor(int count)
 
 static void semafor_p(int nr)
 {
-  int zmien_sem;
   struct sembuf bufor_sem;
   bufor_sem.sem_num=nr;
   bufor_sem.sem_op=-1;
   bufor_sem.sem_flg=SEM_UNDO;
-  zmien_sem=semop(semaphore,&bufor_sem,1);
-  if (zmien_sem==-1) 
+  if (semop(semaphore,&bufor_sem,1)==-1) 
   {
     if(errno==EINTR)
     {
-      printf("Pid: %d Wznowienie procesu\n",getpid());
+      printf("Konsument - Wznowienie procesu\n");
       semafor_p(nr);
     }
     else
     {
-      printf("Pid: %d   Nie moglem zablokowac sekcji krytycznej.\n",getpid());
+      printf("Konsument - Nie moglem zablokowac sekcji krytycznej nr %d\n",nr);
       exit(EXIT_FAILURE);
     }
     
   }
   else
   {
-    printf("Pid: %d   Sekcja krytyczna zablokowana.\n",getpid());
+    printf("Konsument - Sekcja krytyczna nr %d zablokowana.\n",nr);
   }
 }
 
 static void semafor_v(int nr)
 {
-  int zmien_sem;
   struct sembuf bufor_sem;
   bufor_sem.sem_num=nr;
   bufor_sem.sem_op=1;
@@ -79,16 +76,16 @@ static void semafor_v(int nr)
   {
     if(errno==EINTR)
     {
-      printf("Pid: %d Wznowienie procesu\n",getpid());
+      printf("Konsument - Wznowienie procesu\n");
       semafor_v(nr);
     }
       
-    printf("Pid: %d   Nie moglem zablokowac sekcji krytycznej.\n",getpid());
+    printf("Konsument - Nie moglem zablokowac sekcji krytycznej nr %d\n",nr);
     exit(EXIT_FAILURE);
   }
   else
   {
-    printf("Pid: %d   Sekcja krytyczna odblokowana.\n\n",getpid());
+    printf("Konsument - Sekcja krytyczna nr %d odblokowana.\n\n",nr);
   }
 }
 
@@ -114,20 +111,31 @@ void upa()
   else printf("Przestrzen adresowa zostala przyznana : %s\n",address);
 }
 
-void fillInMemory()
+void detachMemory()
 {
-  printf("Wpisz cos do pamieci :");
-  scanf("%s",address);
+  detachment1=shmctl(memory,IPC_RMID,0);
+  detachment2=shmdt(address);
+  if (detachment1==-1 || detachment2==-1)
+    {
+      printf("Problemy z odlaczeniem pamieci dzielonej.\n");
+      exit(EXIT_FAILURE);
+    }
+  else printf("Pamiec dzielona zostala odlaczona.\n");
 }
 
-void takeFromMemory()
-{
-  printf("Biore z pamieci : %s\n",address);
-}
 
 int main()
 {
   int i;
+
+  FILE* fop;
+
+  fop=fopen("output.txt", "w");
+  if(!fop)
+  {
+    printf("Blad otwarcia pliku \"output.txt\"\n");
+    exit(1);
+  }
 
   //uzyskanie dostepu do zbioru semaforow (praca wykluczajaca konsument-producent)
   createSemafor(2);
@@ -136,16 +144,24 @@ int main()
   upd();
   upa();
 
-  for(i=0;i<3;i++)
+  while(1)
   {
     semafor_p(1); 
+    if(!(*address))
+    {
+      //niech tylko zapisze do notesu i ide
+      break;
+    }
     printf("Jestem w trakcie konsumpcji ...\n");
-    sleep(1);
+    sleep(0.1);
+    fprintf(fop,"%c",*address);
     printf("Skonsumowalem!\n");
-    takeFromMemory();
     semafor_v(0); //otwieram dostep 0 - producentowi
   }
-  
 
+  //skonczylem zapisywac do notesu, producent moze skladac stragan
+  detachMemory();
+  semafor_v(0);
+  
   return 0;
 }
