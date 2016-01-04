@@ -8,6 +8,7 @@
 #include <sys/sem.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <time.h>
 
 int memoryKey = 10;
 int memorySize = sizeof(char);
@@ -158,9 +159,10 @@ void detachMemory()
 
 int main()
 {
-
+  double wait;
   int i;
   FILE* fip;
+  srand(time(NULL));
 
   fip=fopen("input.txt", "r");
   if(!fip)
@@ -194,11 +196,14 @@ int main()
       break;
     }
     printf("Jestem w trakcie produkcji ...\n");
-    sleep(0.1);
+    wait = ((double)rand()) / RAND_MAX * 4;
+    printf("Produkcja potrwa %lf sekund\n",wait);
+    sleep(wait);
     printf("Wyprodukowano: %c\n",*address);
     semafor_v(1); //otwieram dostep 1 - konsumentowi
   }
 
+  //wstawiam NULL na polke
   *address = 0;
   printf("Koncze produkcje!\n");
   semafor_v(1); //otwieram dostep 1 - konsumentowi

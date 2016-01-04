@@ -8,6 +8,7 @@
 #include <sys/sem.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <time.h>
 
 int memoryKey = 10;
 int memorySize = sizeof(char);
@@ -126,9 +127,11 @@ void detachMemory()
 
 int main()
 {
+  double wait;
   int i;
-
   FILE* fop;
+
+  srand(time(NULL));
 
   fop=fopen("output.txt", "w");
   if(!fop)
@@ -153,12 +156,15 @@ int main()
       break;
     }
     printf("Jestem w trakcie konsumpcji ...\n");
-    sleep(0.1);
+    wait = ((double)rand()) / RAND_MAX * 4;
+    printf("Konsumpcja potrwa %lf sekund\n",wait);
+    sleep(wait);
     fprintf(fop,"%c",*address);
     printf("Skonsumowalem!\n");
     semafor_v(0); //otwieram dostep 0 - producentowi
   }
 
+  printf("Konsument wychodzi..\n");
   //skonczylem zapisywac do notesu, producent moze skladac stragan
   detachMemory();
   semafor_v(0);

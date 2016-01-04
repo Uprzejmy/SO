@@ -1,1 +1,3 @@
-Text files are files containing sequences of lines of text. Depending on the environment where the application runs, some special character conversion may occur in input/output operations in text mode to adapt them to a system-specific text file format. Although on some environments no conversions occur and both text files and binary files are treated the same way, using the appropriate mode improves portability.
+Mam bardzo duzo towarow, literki abc, cyferki 345, znaki specjalne @%^#<>{}, a nawet enter
+!
+Zapraszamy do konsumpcji.
