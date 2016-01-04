@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <time.h>
 
-int memoryKey = 10;
+int key = 10;
 int memorySize = sizeof(char);
 int memory;
 int detachment1;
@@ -31,7 +31,7 @@ void detachMemory();
 
 static void createSemafor(int count)
 {
-  semaphore=semget(10,count,0777|IPC_CREAT);
+  semaphore=semget(ftok("konsument.out",key),count,0600|IPC_CREAT);
   if (semaphore==-1) 
   {
     printf("Nie moglem utworzyc nowego semafora.\n");
@@ -78,7 +78,7 @@ static void semafor_p(int nr)
   struct sembuf bufor_sem;
   bufor_sem.sem_num=nr;
   bufor_sem.sem_op=-1;
-  bufor_sem.sem_flg=SEM_UNDO;
+  bufor_sem.sem_flg=0;
   if (semop(semaphore,&bufor_sem,1)==-1) 
   {
     if(errno==EINTR)
@@ -104,7 +104,7 @@ static void semafor_v(int nr)
   struct sembuf bufor_sem;
   bufor_sem.sem_num=nr;
   bufor_sem.sem_op=1;
-  bufor_sem.sem_flg=SEM_UNDO;
+  bufor_sem.sem_flg=0;
   if (semop(semaphore,&bufor_sem,1)==-1) 
   {
     if(errno==EINTR)
@@ -124,7 +124,7 @@ static void semafor_v(int nr)
 
 void upd()
 {
-  memory=shmget(memoryKey,memorySize,0777|IPC_CREAT);
+  memory=shmget(ftok("konsument.out",key),memorySize,0600|IPC_CREAT);
   if (memory==-1) 
     {
       printf("Problemy z utworzeniem pamieci dzielonej.\n");
@@ -196,9 +196,9 @@ int main()
       break;
     }
     printf("Jestem w trakcie produkcji ...\n");
-    wait = ((double)rand()) / RAND_MAX * 4;
+    wait = ((double)rand()) / RAND_MAX ;
     printf("Produkcja potrwa %lf sekund\n",wait);
-    sleep(wait);
+    //sleep(wait);
     printf("Wyprodukowano: %c\n",*address);
     semafor_v(1); //otwieram dostep 1 - konsumentowi
   }
@@ -210,8 +210,6 @@ int main()
 
   //czekam az konsument skonczy zapisywac do swojego notesu, zeby zlozyc stragan
   semafor_p(0);
-  //chyba nie musi byc ale dla jasnosci i pewnosci
-  semafor_v(0);
 
   fclose(fip);
   detachMemory();
