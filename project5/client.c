@@ -1,7 +1,9 @@
-#include <unistd.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -27,9 +29,12 @@ void initializeGlobals();
 void joinMessageQueue();
 void displayMessage(struct Message* message);
 
+void* senderThread();
+void* receiverThread();
+
 void initializeGlobals()
 {
-  key = ftok("server.out",10);
+  key = ftok("keyFile",10);
   messageSize = MESSAGE_SIZE*sizeof(char)-sizeof(long int);
 }
 
@@ -52,12 +57,13 @@ void displayMessage(struct Message* message)
   printf("Tresc: %s\n\n",message->content);
 }
 
-receiveMessage(struct Message* message)
+void receiveMessage(struct Message* message)
 {
-  msgrcv( queueId, message, messageSize, getpid(), 0);
+
+  msgrcv( queueId, message, messageSize, (long int) getpid(), 0);
 }
 
-sendMessage(struct Message* message)
+void sendMessage(struct Message* message)
 {
   message->receiver = 1;
   message->sender = getpid();
@@ -66,20 +72,81 @@ sendMessage(struct Message* message)
   msgsnd( queueId, message, messageSize, 0);
 }
 
+void* senderThread()
+{
+  int i;
+  struct Message message;
+
+  for(i=0;i<10;++i)
+  {
+    printf("Wysylam wiadomosc nr: %d ...\n",i);
+    sendMessage(&message);
+    printf("Wyslano\n");
+    sleep(1);
+  }
+
+  pthread_exit(0);
+}
+
+void* receiverThread()
+{
+  int i;
+  struct Message message;
+
+  //for(i=0;i<10;++i)
+  while(1)
+  {
+    printf("przed odebraniem wiadomosci\n");
+    receiveMessage(&message);
+    printf("przed wyswietleniem wiadomosci\n");
+    displayMessage(&message);
+    sleep(2);
+  }
+
+  pthread_exit(0);
+}
+
 int main()
 {
-  struct Message message;
+  int i;
+  int threadError;
+  int** threadStatus;
+  pthread_t senderThreadId;
+  pthread_t receiverThreadId;
 
   initializeGlobals();
 
   joinMessageQueue();
- 
-  printf("przed wyslaniem wiadomosci\n");
-  sendMessage(&message);
-  printf("przed odebraniem wiadomosci\n");
-  receiveMessage(&message);
-  printf("przed wyswietleniem wiadomosci\n");
-  displayMessage(&message);
+
+  threadError = pthread_create(&senderThreadId, NULL, &senderThread, NULL);
+  if (threadError != 0)
+    printf("\nNie udalo sie stworzyc watku wysylajacego :[%s]\n", strerror(threadError));
+  else
+    printf("\nUdalo sie stworzyc watkek wysylajacy\n");
+
+  threadError = pthread_create(&receiverThreadId, NULL, &receiverThread, NULL);
+  if (threadError != 0)
+    printf("\nNie udalo sie stworzyc watku odbierajacego :[%s]\n", strerror(threadError));
+  else
+    printf("\nUdalo sie stworzyc watkek odbierajacy\n");
+
+  threadError = pthread_join(senderThreadId, (void**) threadStatus);
+  if (threadError != 0)
+  {
+    printf("\nNie udalo sie dolaczyc watku :[%s]", strerror(threadError));
+    printf("\nNie udalo sie dolaczyc watku :[%d]", **threadStatus);
+  }
+  else
+    printf("\nUdalo sie dolaczyc watek\n");
+
+  threadError = pthread_join(receiverThreadId, (void**) threadStatus);
+  if (threadError != 0)
+  {
+    printf("\nNie udalo sie dolaczyc watku :[%s]", strerror(threadError));
+    printf("\nNie udalo sie dolaczyc watku :[%d]", **threadStatus);
+  }
+  else
+    printf("\nUdalo sie dolaczyc watek\n");
 
   return 0;
 }

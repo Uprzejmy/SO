@@ -7,6 +7,7 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/msg.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <errno.h>
 
@@ -23,17 +24,33 @@ struct Message
   char content[MESSAGE_SIZE];
 };
 
-void initializeGlobals();
+//general functions
+void initialize();
+void sigintHandler(int signal);
+
+//Message queue interface
 void createMessageQueue();
 void deleteMessageQueue();
+
+//Single message interface
 void displayMessage(struct Message* message);
 void receiveMessage(struct Message* message);
 void sendMessage(struct Message* message);
 
-void initializeGlobals()
+void initialize()
 {
-  key = ftok("server.out",10);
+  //przejmuje kontrole nad ctrl+c zeby posprzatac po sobie w razie przerwania z zewnatrz, potem grzecznie koncze proces.
+  signal(SIGINT, sigintHandler);
+
+  key = ftok("keyFile",10);
   messageSize = MESSAGE_SIZE*sizeof(char)-sizeof(long int);
+}
+
+void sigintHandler(int signal)
+{
+  printf("\nSerwer przerwal dzialanie poprzez Ctrl+C \n");
+  deleteMessageQueue();
+  exit(1);
 }
 
 void createMessageQueue()
@@ -94,21 +111,28 @@ int main()
   char c;
   struct Message message;
 
-  initializeGlobals();
+  initialize();
 
   createMessageQueue();
 
-  
-  printf("przed odebraniem wiadomosci\n");
-  receiveMessage(&message);
-  printf("przed wyswietleniem wiadomosci\n");
-  displayMessage(&message);
-  printf("przed wyslaniem wiadomosci\n");
-  sendMessage(&message);
+  while(1)
+  {
+    printf("Czekam na wiadomosc...\n");
+    receiveMessage(&message);
+    printf("Odebralem wiadomosc\n\n");
+
+    displayMessage(&message);
+
+    printf("Wysylam odpowiedz...\n");
+    sendMessage(&message);
+    printf("Wyslalem odpowiedz\n\n\n");
+  }
 
 
+  //w tym miejscu nikt raczej nie powinien sie znalezc, ale na wszelki wypadek..
   printf("wcisnij dowolny przycisk aby zakonczyc..\n");
   scanf(" %c",&c);
+
   deleteMessageQueue();
 
   return 0;
