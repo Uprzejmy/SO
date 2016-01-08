@@ -59,28 +59,29 @@ void displayMessage(struct Message* message)
 
 void receiveMessage(struct Message* message)
 {
-
+  //jak server przerwie dzialanie to caly czas czyta ta sama wiadomosc
   msgrcv( queueId, message, messageSize, (long int) getpid(), 0);
 }
 
-void sendMessage(struct Message* message)
+void sendMessage(int count)
 {
-  message->receiver = 1;
-  message->sender = getpid();
-  sprintf(message->content, "czesc, tu nowy komunikat od procesu %ld",(long int) getpid());
+  struct Message message;
 
-  msgsnd( queueId, message, messageSize, 0);
+  message.receiver = 1;
+  message.sender = getpid();
+  sprintf(message.content, "czesc, tu komunikat %d od procesu %ld", count, (long int) getpid());
+
+  msgsnd( queueId, &message, messageSize, 0);
 }
 
 void* senderThread()
 {
   int i;
-  struct Message message;
 
-  for(i=0;i<10;++i)
+  for(i=0;i<3;++i)
   {
     printf("Wysylam wiadomosc nr: %d ...\n",i);
-    sendMessage(&message);
+    sendMessage(i);
     printf("Wyslano\n");
     sleep(1);
   }
@@ -106,6 +107,38 @@ void* receiverThread()
   pthread_exit(0);
 }
 
+void createThread(pthread_t* threadId, void* threadFunction)
+{
+  int threadError;
+
+  threadError = pthread_create(threadId, NULL, threadFunction, NULL);
+  if (threadError != 0)
+    printf("\nNie udalo sie stworzyc watku :[%s]\n", strerror(threadError));
+  else
+    printf("\nUdalo sie stworzyc watkek\n");
+}
+
+void waitThread(pthread_t threadId)
+{
+  int threadError;
+  int** threadStatus;
+
+  threadStatus = malloc(sizeof(*threadStatus));
+  *threadStatus = malloc(sizeof(**threadStatus));
+
+  threadError = pthread_join(threadId, (void**) threadStatus);
+  if (threadError != 0)
+  {
+    printf("\nNie udalo sie dolaczyc watku :[%s]", strerror(threadError));
+    printf("\nNie udalo sie dolaczyc watku :[%d]", ** (int**)threadStatus);
+  }
+  else
+    printf("\nUdalo sie dolaczyc watek\n");
+
+  free(*threadStatus);
+  free(threadStatus);
+}
+
 int main()
 {
   int i;
@@ -118,35 +151,11 @@ int main()
 
   joinMessageQueue();
 
-  threadError = pthread_create(&senderThreadId, NULL, &senderThread, NULL);
-  if (threadError != 0)
-    printf("\nNie udalo sie stworzyc watku wysylajacego :[%s]\n", strerror(threadError));
-  else
-    printf("\nUdalo sie stworzyc watkek wysylajacy\n");
+  createThread(&senderThreadId, &senderThread);
+  createThread(&receiverThreadId, &receiverThread);
 
-  threadError = pthread_create(&receiverThreadId, NULL, &receiverThread, NULL);
-  if (threadError != 0)
-    printf("\nNie udalo sie stworzyc watku odbierajacego :[%s]\n", strerror(threadError));
-  else
-    printf("\nUdalo sie stworzyc watkek odbierajacy\n");
-
-  threadError = pthread_join(senderThreadId, (void**) threadStatus);
-  if (threadError != 0)
-  {
-    printf("\nNie udalo sie dolaczyc watku :[%s]", strerror(threadError));
-    printf("\nNie udalo sie dolaczyc watku :[%d]", **threadStatus);
-  }
-  else
-    printf("\nUdalo sie dolaczyc watek\n");
-
-  threadError = pthread_join(receiverThreadId, (void**) threadStatus);
-  if (threadError != 0)
-  {
-    printf("\nNie udalo sie dolaczyc watku :[%s]", strerror(threadError));
-    printf("\nNie udalo sie dolaczyc watku :[%d]", **threadStatus);
-  }
-  else
-    printf("\nUdalo sie dolaczyc watek\n");
+  waitThread(senderThreadId);
+  waitThread(receiverThreadId);
 
   return 0;
 }
