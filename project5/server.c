@@ -34,7 +34,7 @@ void deleteMessageQueue();
 
 //Single message interface
 void displayMessage(struct Message* message);
-void receiveMessage(struct Message* message);
+int receiveMessage(struct Message* message);
 void sendMessage(struct Message* message);
 
 void initialize()
@@ -85,24 +85,71 @@ void displayMessage(struct Message* message)
   printf("Tresc: %s\n\n",message->content);
 }
 
-void receiveMessage(struct Message* message)
+int receiveMessage(struct Message* message)
 {
-  int receiveError;
-  receiveError = msgrcv( queueId, message, messageSize, 1, 0);
-  if(receiveError == -1)
+  if(msgrcv( queueId, message, messageSize, 1, MSG_NOERROR) == -1)
   {
-    printf("Blad podczas odbierania komunikatu\n");
+    if(errno == EIDRM)
+    { 
+      printf("Blad podczas odbierania komunikatu, kolejka zostala skasowana\n");
+      exit(1);
+    }
+
+    if(errno == EINTR)
+    { 
+      printf("Blad podczas odbierania komunikatu, wznowienie procesu\n");
+      return receiveMessage(message);
+    }
+
+    if(errno == EAGAIN)
+    { 
+      printf("Blad podczas odbierania komunikatu, kolejka pelna!\n");
+      return 1;
+    }
+    
+    printf("Blad podczas odbierania komunikatu, komunikat zbyt duzy zostanie zignorowany\n");
+    return(1);
   }
+
+  return 0;
 
 }
 
 void sendMessage(struct Message* message)
 {
+  int i;
   message->receiver = message->sender;
   message->sender = 1;
-  sprintf(message->content, "czesc, tu odpowiedz od serwera");
 
-  msgsnd( queueId, message, messageSize, 0);
+  for(i=0;i<strlen(message->content);i++)
+  {
+    message->content[i] = toupper(message->content[i]);
+  }
+
+  if(msgsnd( queueId, message, messageSize, 0) == -1)
+  {
+    if(errno == EIDRM)
+    { 
+      printf("Blad podczas wysylania komunikatu, kolejka zostala skasowana\n");
+      exit(1);
+    }
+
+    if(errno == EINTR)
+    { 
+      printf("Blad podczas wysylania komunikatu, wznowienie procesu\n");
+      message->sender = message->receiver;//zeby wywolanie funkcji dobrze obsluzylo
+      return sendMessage(message);
+    }
+
+    if(errno == EAGAIN)
+    { 
+      printf("Blad podczas wysylania komunikatu, kolejka pelna!\n"); // msg_qbytes limit
+      return;
+    }
+
+    printf("Blad podczas wysylania komunikatu, pelna kolejka?\n");
+    exit(1);
+  }
 }
 
 
@@ -115,10 +162,12 @@ int main()
 
   createMessageQueue();
 
+
   while(1)
   {
     printf("Czekam na wiadomosc...\n");
-    receiveMessage(&message);
+    if(receiveMessage(&message) == 1)
+      continue;//dlugosc wiadomosci wieksza niz okreslony max, ignoruje ta wiadomosc
     printf("Odebralem wiadomosc\n\n");
 
     displayMessage(&message);

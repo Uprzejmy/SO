@@ -60,7 +60,29 @@ void displayMessage(struct Message* message)
 void receiveMessage(struct Message* message)
 {
   //jak server przerwie dzialanie to caly czas czyta ta sama wiadomosc
-  msgrcv( queueId, message, messageSize, (long int) getpid(), 0);
+  if(msgrcv( queueId, message, messageSize, (long int) getpid(), 0 ) == -1)
+  {
+    if(errno == EIDRM)
+    { 
+      printf("Blad podczas odbierania komunikatu, kolejka zostala skasowana\n");
+      exit(1);
+    }
+
+    if(errno == EINTR)
+    { 
+      printf("Blad podczas odbierania komunikatu, wznowienie procesu\n");
+      return receiveMessage(message);
+    }
+
+    if(errno == EAGAIN)
+    { 
+      printf("Blad podczas odbierania komunikatu, kolejka pelna!\n");
+      return;
+    }
+    
+    printf("Blad podczas odbierania komunikatu, komunikat zbyt duzy zostanie zignorowany\n");
+    return;
+  }
 }
 
 void sendMessage(int count)
@@ -71,19 +93,42 @@ void sendMessage(int count)
   message.sender = getpid();
   sprintf(message.content, "czesc, tu komunikat %d od procesu %ld", count, (long int) getpid());
 
-  msgsnd( queueId, &message, messageSize, 0);
+  if(msgsnd(queueId, &message, messageSize, 0) == -1)
+  {
+    if(errno == EIDRM)
+    { 
+      printf("Blad podczas wysylania komunikatu, kolejka zostala skasowana\n");
+      exit(1);
+    }
+
+    if(errno == EINTR)
+    { 
+      printf("Blad podczas wysylania komunikatu, wznowienie procesu\n");
+      return sendMessage(count);
+    }
+
+    if(errno == EAGAIN)
+    { 
+      printf("Blad podczas wysylania komunikatu, kolejka pelna!\n"); // msg_qbytes limit
+      return;
+    }
+
+    printf("Nie udalo sie wyslac wiadomosci, pelna kolejka?\n");
+    exit(1);
+  }
+
 }
 
 void* senderThread()
 {
   int i;
 
-  for(i=0;i<3;++i)
+  for(i=0;i<50;++i)
   {
     printf("Wysylam wiadomosc nr: %d ...\n",i);
     sendMessage(i);
     printf("Wyslano\n");
-    sleep(1);
+    //sleep(1);
   }
 
   pthread_exit(0);
@@ -94,14 +139,13 @@ void* receiverThread()
   int i;
   struct Message message;
 
-  //for(i=0;i<10;++i)
   while(1)
   {
     printf("przed odebraniem wiadomosci\n");
     receiveMessage(&message);
     printf("przed wyswietleniem wiadomosci\n");
     displayMessage(&message);
-    sleep(2);
+    sleep(1);
   }
 
   pthread_exit(0);
@@ -141,9 +185,6 @@ void waitThread(pthread_t threadId)
 
 int main()
 {
-  int i;
-  int threadError;
-  int** threadStatus;
   pthread_t senderThreadId;
   pthread_t receiverThreadId;
 
