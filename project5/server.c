@@ -86,7 +86,7 @@ void displayMessage(struct Message* message)
   printf("Odbiorca: %ld\n",message->receiver);
   printf("Tresc: ");
 
-  for(i=0;i<10;i++)
+  for(i=0;i<MESSAGE_SIZE;i++)
   {
     if(message->content[i] == '\0')
       break; 
