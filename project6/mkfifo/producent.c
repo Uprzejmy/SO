@@ -27,6 +27,8 @@ void generateFile()
     c = rand() % (126-32) + 32;
     fprintf(fop,"%c",c);
   }
+
+  fclose(fop);
 }
 
 void initialize()
