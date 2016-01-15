@@ -11,7 +11,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#define MESSAGE_SIZE 128
+#define MESSAGE_SIZE 10
 
 key_t key;
 int queueId;
@@ -43,7 +43,7 @@ void initialize()
   signal(SIGINT, sigintHandler);
 
   key = ftok("keyFile",10);
-  messageSize = MESSAGE_SIZE*sizeof(char)-sizeof(long int);
+  messageSize = MESSAGE_SIZE*sizeof(char)+sizeof(long int);
 }
 
 void sigintHandler(int signal)
@@ -80,14 +80,26 @@ void deleteMessageQueue()
 
 void displayMessage(struct Message* message)
 {
+  int i;
+
   printf("Nadawca: %ld\n",message->sender);
   printf("Odbiorca: %ld\n",message->receiver);
-  printf("Tresc: %s\n\n",message->content);
+  printf("Tresc: ");
+
+  for(i=0;i<MESSAGE_SIZE;i++)
+  {
+    if(message->content[i] == '\0')
+      break; 
+    printf("%c",message->content[i]);
+  }
+
+  printf("\n\n");
+  
 }
 
 int receiveMessage(struct Message* message)
 {
-  if(msgrcv( queueId, message, messageSize, 1, MSG_NOERROR) == -1)
+  if(msgrcv( queueId, message, messageSize, 1, 0) == -1)
   {
     if(errno == EIDRM)
     { 

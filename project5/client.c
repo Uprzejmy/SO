@@ -12,7 +12,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#define MESSAGE_SIZE 128
+#define MESSAGE_SIZE 10
 
 key_t key;
 int queueId;
@@ -35,7 +35,7 @@ void* receiverThread();
 void initializeGlobals()
 {
   key = ftok("keyFile",10);
-  messageSize = MESSAGE_SIZE*sizeof(char)-sizeof(long int);
+  messageSize = MESSAGE_SIZE*sizeof(char)+sizeof(long int);
 }
 
 void joinMessageQueue()
@@ -59,7 +59,6 @@ void displayMessage(struct Message* message)
 
 void receiveMessage(struct Message* message)
 {
-  //jak server przerwie dzialanie to caly czas czyta ta sama wiadomosc
   if(msgrcv( queueId, message, messageSize, (long int) getpid(), 0 ) == -1)
   {
     if(errno == EIDRM)
@@ -85,13 +84,13 @@ void receiveMessage(struct Message* message)
   }
 }
 
-void sendMessage(int count)
+void sendMessage(char* msg)
 {
   struct Message message;
 
   message.receiver = 1;
   message.sender = getpid();
-  sprintf(message.content, "czesc, tu komunikat %d od procesu %ld", count, (long int) getpid());
+  strcpy(message.content,msg);
 
   if(msgsnd(queueId, &message, messageSize, 0) == -1)
   {
@@ -104,7 +103,7 @@ void sendMessage(int count)
     if(errno == EINTR)
     { 
       printf("Blad podczas wysylania komunikatu, wznowienie procesu\n");
-      return sendMessage(count);
+      return sendMessage(msg);
     }
 
     if(errno == EAGAIN)
@@ -122,14 +121,23 @@ void sendMessage(int count)
 void* senderThread()
 {
   int i;
+  char* msg = malloc(MESSAGE_SIZE*sizeof(char));
 
-  for(i=0;i<50;++i)
+  i=0;
+
+  while(1)
   {
-    printf("Wysylam wiadomosc nr: %d ...\n",i);
-    sendMessage(i);
+    printf("Wysylam wiadomosc nr: %d ...\n",i++);
+    printf("Podaj tresc\n");
+    scanf("%10s",msg);
+    printf("\n");
+    sendMessage(msg);
+    
     printf("Wyslano\n");
     //sleep(1);
   }
+
+  free(msg);
 
   pthread_exit(0);
 }
@@ -141,9 +149,9 @@ void* receiverThread()
 
   while(1)
   {
-    printf("przed odebraniem wiadomosci\n");
+    //printf("przed odebraniem wiadomosci\n");
     receiveMessage(&message);
-    printf("przed wyswietleniem wiadomosci\n");
+    //printf("przed wyswietleniem wiadomosci\n");
     displayMessage(&message);
     sleep(1);
   }
