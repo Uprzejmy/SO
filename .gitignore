@@ -32,5 +32,5 @@
 *.dSYM/
 
 jwojtas/*
-project6/input/*
-project6/output/*
+project6/mkfifo/input/*
+project6/mkfifo/output/*
