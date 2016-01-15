@@ -29,7 +29,7 @@ void generateFile()
   }
 }
 
-initialize()
+void initialize()
 {
   srand(time(NULL));
 
