@@ -6,18 +6,18 @@
 #include <errno.h>
 
 char fifoFilename[] = "transfer";
+char inputFilename[128];
 
 void generateFile()
 {
   FILE* fop;
-  char filename[128];
   int i,numberOfChars;
   char c;
 
   numberOfChars = rand() % 50 + 1;//bede generowal pliki od 1 do 50 znakow
-  sprintf(filename,"input/%ld",(long int)getpid());
+  sprintf(inputFilename,"input/%ld.input",(long int)getpid());
 
-  fop = fopen(filename,"w");
+  fop = fopen(inputFilename,"w");
   if(!fop)
   {
     printf("Błąd otwarcia pliku!\n");
@@ -40,9 +40,8 @@ void makeFifo()
   {
     if(errno == EEXIST)
     {
-      printf("Fifo juz istnieje, usuwan i tworze nowy\n");
-      unlink(fifoFilename);
-      makeFifo();
+      printf("Fifo juz istnieje, nie musze tworzyc nowego\n");
+      return;
     }
     else
     {
@@ -71,16 +70,47 @@ void cleanup()
 
 }
 
+void putIntoFifo(char c)
+{
+  FILE* fop;
+
+  fop = fopen(fifoFilename,"w");
+  if(!fop)
+  {
+    printf("Błąd otwarcia pliku fifo!\n");
+    exit(1);
+  }
+
+  putc(c,fop);
+
+  fclose(fop);
+}
+
 void sendData()
 {
+  FILE* fip;
+  char c;
 
+  fip = fopen(inputFilename,"r");
+  if(!fip)
+  {
+    printf("Błąd otwarcia pliku fifo!\n");
+    exit(1);
+  }
+
+  while((c = getc(fip))!=EOF)
+  {
+    putIntoFifo(c);
+  }
+
+  fclose(fip);
 }
 
 int main()
 {
   initialize();
   
-  //sendData();
+  sendData();
 
   cleanup();
 
