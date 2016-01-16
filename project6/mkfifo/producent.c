@@ -94,14 +94,18 @@ void sendData()
   fip = fopen(inputFilename,"r");
   if(!fip)
   {
-    printf("Błąd otwarcia pliku fifo!\n");
+    printf("Błąd otwarcia pliku z danymi!\n");
     exit(1);
   }
 
   while((c = getc(fip))!=EOF)
   {
+    printf("Wysylam znak do fifo\n");
+    sleep(1);
     putIntoFifo(c);
   }
+
+  printf("Koniec wysylania znakow do fifo\n");
 
   fclose(fip);
 }
