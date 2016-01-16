@@ -4,18 +4,30 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 
 char fifoFilename[] = "transfer";
 char inputFilename[128];
+int numberOfChars = 0;
+
+void sigintHandler(int signal);
 
 void initialize()
 {
+  signal(SIGINT, sigintHandler);
   sprintf(inputFilename,"output/%ld.output",(long int)getpid());
 }
 
 void cleanup()
 {
 
+}
+
+void sigintHandler(int signal)
+{
+  printf("\nKonsument przerwal dzialanie przez Ctrl+C \n");
+  printf("Ilosc skonsumowanych znakow: %d\n",numberOfChars);
+  exit(0);
 }
 
 int getFromFifo(char* c)
@@ -39,6 +51,7 @@ int getFromFifo(char* c)
     return getFromFifo(c);
   }
 
+  numberOfChars++;
   return 0;
 }
 
@@ -46,13 +59,6 @@ void getData()
 {
   FILE* fop;
   char c;
-
-  fop = fopen(inputFilename,"w");
-  if(!fop)
-  {
-    printf("Błąd otwarcia pliku wynikowego!\n");
-    exit(1);
-  }
 
   while(!getFromFifo(&c))
   {
