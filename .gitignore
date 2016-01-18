@@ -34,3 +34,6 @@
 jwojtas/*
 project6/mkfifo/input/*
 project6/mkfifo/output/*
+
+project6/pipe/input/*
+project6/pipe/output/*
